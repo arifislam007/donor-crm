@@ -50,6 +50,18 @@
                             <span>Emails</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="/admin/payment-logs" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition <?= strpos($_SERVER['REQUEST_URI'], '/admin/payment-logs') !== false ? 'bg-gray-700' : '' ?>">
+                            <i class="fas fa-list-alt w-6"></i>
+                            <span>Payment Logs</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/admin/settings" class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition <?= strpos($_SERVER['REQUEST_URI'], '/admin/settings') !== false ? 'bg-gray-700' : '' ?>">
+                            <i class="fas fa-cog w-6"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
                 </ul>
                 
                 <div class="mt-8 pt-4 border-t border-gray-700">

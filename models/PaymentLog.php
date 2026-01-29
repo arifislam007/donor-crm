@@ -11,6 +11,7 @@ class PaymentLog extends Model
     protected array $fillable = [
         'donation_id',
         'gateway',
+        'is_sandbox',
         'transaction_id',
         'request_data',
         'response_data',
@@ -69,9 +70,12 @@ class PaymentLog extends Model
      */
     public static function logRequest(int $donationId, string $gateway, array $requestData, string $transactionId = ''): self
     {
+        $isSandbox = Setting::isSandbox($gateway);
+        
         return self::create([
             'donation_id' => $donationId,
             'gateway' => $gateway,
+            'is_sandbox' => $isSandbox,
             'transaction_id' => $transactionId,
             'request_data' => json_encode($requestData),
             'status' => 'pending'

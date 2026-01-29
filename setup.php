@@ -129,6 +129,7 @@ try {
             `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             `donation_id` BIGINT UNSIGNED NOT NULL,
             `gateway` ENUM('sslcommerz', 'nagad', 'bkash', 'rocket', 'mock') NOT NULL,
+            `is_sandbox` TINYINT(1) DEFAULT 1,
             `transaction_id` VARCHAR(255) DEFAULT '',
             `request_data` TEXT DEFAULT '',
             `response_data` TEXT DEFAULT '',
@@ -141,6 +142,49 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
     echo "✓ Payment logs table created\n";
+    
+    // Create settings table for payment gateway configuration
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS `settings` (
+            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `key` VARCHAR(100) UNIQUE NOT NULL,
+            `value` TEXT DEFAULT '',
+            `type` ENUM('string', 'integer', 'boolean', 'json') DEFAULT 'string',
+            `description` VARCHAR(255) DEFAULT '',
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    echo "✓ Settings table created\n";
+    
+    // Insert default payment gateway settings
+    $settings = [
+        ['key' => 'payment_mode', 'value' => 'sandbox', 'type' => 'string', 'description' => 'Payment mode: sandbox or live'],
+        ['key' => 'sslcommerz_store_id', 'value' => '', 'type' => 'string', 'description' => 'SSLCommerz Store ID'],
+        ['key' => 'sslcommerz_store_password', 'value' => '', 'type' => 'string', 'description' => 'SSLCommerz Store Password'],
+        ['key' => 'sslcommerz_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'SSLCommerz Sandbox Mode'],
+        ['key' => 'nagad_merchant_id', 'value' => '', 'type' => 'string', 'description' => 'Nagad Merchant ID'],
+        ['key' => 'nagad_merchant_number', 'value' => '', 'type' => 'string', 'description' => 'Nagad Merchant Number'],
+        ['key' => 'nagad_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Nagad Sandbox Mode'],
+        ['key' => 'bkash_app_key', 'value' => '', 'type' => 'string', 'description' => 'Bkash App Key'],
+        ['key' => 'bkash_app_secret', 'value' => '', 'type' => 'string', 'description' => 'Bkash App Secret'],
+        ['key' => 'bkash_username', 'value' => '', 'type' => 'string', 'description' => 'Bkash Username'],
+        ['key' => 'bkash_password', 'value' => '', 'type' => 'string', 'description' => 'Bkash Password'],
+        ['key' => 'bkash_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Bkash Sandbox Mode'],
+        ['key' => 'rocket_merchant_id', 'value' => '', 'type' => 'string', 'description' => 'Rocket Merchant ID'],
+        ['key' => 'rocket_merchant_number', 'value' => '', 'type' => 'string', 'description' => 'Rocket Merchant Number'],
+        ['key' => 'rocket_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Rocket Sandbox Mode'],
+    ];
+    
+    foreach ($settings as $setting) {
+        $stmt = $db->prepare("
+            INSERT INTO settings (`key`, `value`, `type`, `description`) 
+            VALUES (:key, :value, :type, :description)
+            ON DUPLICATE KEY UPDATE `value` = :value
+        ");
+        $stmt->execute($setting);
+    }
+    echo "✓ Default payment settings created\n";
     
     // Create admin user
     $adminExists = $db->query("SELECT COUNT(*) FROM users WHERE email = 'admin@ngodonation.org'")->fetchColumn();

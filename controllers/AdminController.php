@@ -263,4 +263,63 @@ class AdminController extends \Controller {
         $this->with('success', 'Email(s) sent successfully.')
             ->redirect('/admin/emails');
     }
+    
+    // ========== Payment Gateway Settings ==========
+    
+    public function settings() {
+        $paymentSettings = \Setting::getPaymentSettings();
+        
+        $this->view('admin.settings', [
+            'settings' => $paymentSettings
+        ]);
+    }
+    
+    public function updateSettings() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/admin/settings');
+        }
+        
+        $paymentMode = $_POST['payment_mode'] ?? 'sandbox';
+        \Setting::set('payment_mode', $paymentMode, 'string');
+        
+        // SSLCommerz settings
+        \Setting::set('sslcommerz_store_id', $_POST['sslcommerz_store_id'] ?? '', 'string');
+        \Setting::set('sslcommerz_store_password', $_POST['sslcommerz_store_password'] ?? '', 'string');
+        \Setting::set('sslcommerz_sandbox', isset($_POST['sslcommerz_sandbox']), 'boolean');
+        
+        // Nagad settings
+        \Setting::set('nagad_merchant_id', $_POST['nagad_merchant_id'] ?? '', 'string');
+        \Setting::set('nagad_merchant_number', $_POST['nagad_merchant_number'] ?? '', 'string');
+        \Setting::set('nagad_sandbox', isset($_POST['nagad_sandbox']), 'boolean');
+        
+        // Bkash settings
+        \Setting::set('bkash_app_key', $_POST['bkash_app_key'] ?? '', 'string');
+        \Setting::set('bkash_app_secret', $_POST['bkash_app_secret'] ?? '', 'string');
+        \Setting::set('bkash_username', $_POST['bkash_username'] ?? '', 'string');
+        \Setting::set('bkash_password', $_POST['bkash_password'] ?? '', 'string');
+        \Setting::set('bkash_sandbox', isset($_POST['bkash_sandbox']), 'boolean');
+        
+        // Rocket settings
+        \Setting::set('rocket_merchant_id', $_POST['rocket_merchant_id'] ?? '', 'string');
+        \Setting::set('rocket_merchant_number', $_POST['rocket_merchant_number'] ?? '', 'string');
+        \Setting::set('rocket_sandbox', isset($_POST['rocket_sandbox']), 'boolean');
+        
+        $this->with('success', 'Payment gateway settings updated successfully.')
+            ->redirect('/admin/settings');
+    }
+    
+    // ========== Payment Logs ==========
+    
+    public function paymentLogs() {
+        $page = (int) ($_GET['page'] ?? 1);
+        $perPage = 20;
+        
+        $paymentLogs = \PaymentLog::paginate($page, $perPage);
+        
+        $this->view('admin.payment-logs', [
+            'paymentLogs' => $paymentLogs['data'],
+            'currentPage' => $page,
+            'totalPages' => $paymentLogs['totalPages'],
+        ]);
+    }
 }

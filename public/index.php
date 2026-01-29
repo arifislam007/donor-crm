@@ -61,6 +61,9 @@ $router->get('/admin/projects/{id}/delete', 'AdminController@deleteProject');
 $router->get('/admin/emails', 'AdminController@emails');
 $router->get('/admin/emails/send', 'AdminController@showSendEmail');
 $router->post('/admin/emails/send', 'AdminController@sendEmail');
+$router->get('/admin/settings', 'AdminController@settings');
+$router->post('/admin/settings', 'AdminController@updateSettings');
+$router->get('/admin/payment-logs', 'AdminController@paymentLogs');
 
 // Payment routes
 $router->get('/payment/checkout', 'PaymentController@checkout');
