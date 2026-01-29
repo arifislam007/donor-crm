@@ -5,6 +5,9 @@
  * Run this script to create the database tables
  */
 
+// Define application path
+define('APP_PATH', __DIR__);
+
 require_once __DIR__ . '/autoload.php';
 
 echo "Setting up NGO Donor Management System database...\n\n";
