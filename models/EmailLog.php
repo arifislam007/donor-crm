@@ -5,7 +5,7 @@
  */
 
 class EmailLog extends Model {
-    protected static $table = 'email_logs';
+    protected static string $table = 'email_logs';
     
     protected $attributes = [
         'id' => null,

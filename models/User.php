@@ -5,7 +5,7 @@
  */
 
 class User extends Model {
-    protected static $table = 'users';
+    protected static string $table = 'users';
     
     protected $attributes = [
         'id' => null,

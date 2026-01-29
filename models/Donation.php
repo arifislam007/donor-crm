@@ -5,7 +5,7 @@
  */
 
 class Donation extends Model {
-    protected static $table = 'donations';
+    protected static string $table = 'donations';
     
     protected $attributes = [
         'id' => null,
