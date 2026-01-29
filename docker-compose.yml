@@ -12,6 +12,11 @@ services:
     environment:
       - APP_ENV=production
       - APP_DEBUG=false
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=ngo_donor_system
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
     depends_on:
       - db
     networks:
