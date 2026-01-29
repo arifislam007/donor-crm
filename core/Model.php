@@ -2,19 +2,20 @@
 /**
  * Base Model Class
  * NGO Donor Management System
+ * Supports MySQL and PostgreSQL
  */
 
 abstract class Model {
-    protected static $table;
-    protected $attributes = [];
-    protected $original = [];
+    protected static string $table;
+    protected array $attributes = [];
+    protected array $original = [];
     
     public function __construct(array $attributes = []) {
         $this->fill($attributes);
         $this->original = $this->attributes;
     }
     
-    public function fill(array $attributes) {
+    public function fill(array $attributes): self {
         foreach ($attributes as $key => $value) {
             $this->attributes[$key] = $value;
         }
@@ -33,11 +34,22 @@ abstract class Model {
         return isset($this->attributes[$name]);
     }
     
-    public function getTable() {
+    public function getTable(): string {
         return static::$table;
     }
     
-    public function save() {
+    private function getDriver(): string {
+        return Database::getInstance()->getDriver();
+    }
+    
+    private function quoteIdentifier($identifier): string {
+        if ($this->getDriver() === 'pgsql') {
+            return '"' . $identifier . '"';
+        }
+        return '`' . $identifier . '`';
+    }
+    
+    public function save(): self {
         $db = Database::getInstance();
         $table = $this->getTable();
         
@@ -47,18 +59,18 @@ abstract class Model {
             $values = [];
             foreach ($this->attributes as $key => $value) {
                 if ($key !== 'id') {
-                    $sets[] = "`$key` = ?";
+                    $sets[] = $this->quoteIdentifier($key) . " = ?";
                     $values[] = $value;
                 }
             }
             $values[] = $this->attributes['id'];
-            $sql = "UPDATE `$table` SET " . implode(', ', $sets) . " WHERE id = ?";
+            $sql = "UPDATE " . $this->quoteIdentifier($table) . " SET " . implode(', ', $sets) . " WHERE id = ?";
             $db->query($sql, $values);
         } else {
             // Insert
             $columns = array_keys($this->attributes);
             $placeholders = array_fill(0, count($columns), '?');
-            $sql = "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $placeholders) . ")";
+            $sql = "INSERT INTO " . $this->quoteIdentifier($table) . " (" . implode(', ', array_map([$this, 'quoteIdentifier'], $columns)) . ") VALUES (" . implode(', ', $placeholders) . ")";
             $db->query($sql, array_values($this->attributes));
             $this->attributes['id'] = $db->lastInsertId();
         }
@@ -66,19 +78,19 @@ abstract class Model {
         return $this;
     }
     
-    public function delete() {
+    public function delete(): bool {
         if (!isset($this->attributes['id'])) {
             return false;
         }
         
         $db = Database::getInstance();
-        $sql = "DELETE FROM `" . $this->getTable() . "` WHERE id = ?";
-        return $db->query($sql, [$this->attributes['id']]);
+        $sql = "DELETE FROM " . $this->quoteIdentifier($this->getTable()) . " WHERE id = ?";
+        return (bool) $db->query($sql, [$this->attributes['id']]);
     }
     
     public static function find($id) {
         $db = Database::getInstance();
-        $sql = "SELECT * FROM `" . static::$table . "` WHERE id = ? LIMIT 1";
+        $sql = "SELECT * FROM " . static::quote(static::$table) . " WHERE id = ? LIMIT 1";
         $result = $db->query($sql, [$id])->fetch();
         
         if ($result) {
@@ -89,7 +101,7 @@ abstract class Model {
     
     public static function findBy($column, $value) {
         $db = Database::getInstance();
-        $sql = "SELECT * FROM `" . static::$table . "` WHERE `$column` = ? LIMIT 1";
+        $sql = "SELECT * FROM " . static::quote(static::$table) . " WHERE " . static::quote($column) . " = ? LIMIT 1";
         $result = $db->query($sql, [$value])->fetch();
         
         if ($result) {
@@ -98,15 +110,23 @@ abstract class Model {
         return null;
     }
     
-    public static function where($conditions = []) {
+    private static function quote($identifier): string {
         $db = Database::getInstance();
-        $sql = "SELECT * FROM `" . static::$table . "`";
+        if ($db->getDriver() === 'pgsql') {
+            return '"' . $identifier . '"';
+        }
+        return '`' . $identifier . '`';
+    }
+    
+    public static function where($conditions = []): Collection {
+        $db = Database::getInstance();
+        $sql = "SELECT * FROM " . static::quote(static::$table);
         
+        $values = [];
         if (!empty($conditions)) {
             $wheres = [];
-            $values = [];
             foreach ($conditions as $column => $value) {
-                $wheres[] = "`$column` = ?";
+                $wheres[] = static::quote($column) . " = ?";
                 $values[] = $value;
             }
             $sql .= " WHERE " . implode(' AND ', $wheres);
@@ -123,9 +143,9 @@ abstract class Model {
         return new Collection($models);
     }
     
-    public static function all() {
+    public static function all(): Collection {
         $db = Database::getInstance();
-        $sql = "SELECT * FROM `" . static::$table . "`";
+        $sql = "SELECT * FROM " . static::quote(static::$table);
         $stmt = $db->query($sql);
         $results = $stmt->fetchAll();
         
@@ -137,11 +157,11 @@ abstract class Model {
         return new Collection($models);
     }
     
-    public static function paginate($page = 1, $perPage = 10) {
+    public static function paginate(int $page = 1, int $perPage = 10): array {
         $db = Database::getInstance();
         $offset = ($page - 1) * $perPage;
         
-        $sql = "SELECT * FROM `" . static::$table . "` LIMIT ? OFFSET ?";
+        $sql = "SELECT * FROM " . static::quote(static::$table) . " LIMIT ? OFFSET ?";
         $stmt = $db->query($sql, [$perPage, $offset]);
         $results = $stmt->fetchAll();
         
@@ -150,7 +170,7 @@ abstract class Model {
             $models[] = new static($result);
         }
         
-        $totalSql = "SELECT COUNT(*) as count FROM `" . static::$table . "`";
+        $totalSql = "SELECT COUNT(*) as count FROM " . static::quote(static::$table);
         $total = $db->query($totalSql)->fetch()['count'];
         
         return [
@@ -160,5 +180,18 @@ abstract class Model {
             'perPage' => $perPage,
             'totalPages' => ceil($total / $perPage)
         ];
+    }
+    
+    public function update(array $data): self {
+        foreach ($data as $key => $value) {
+            $this->attributes[$key] = $value;
+        }
+        return $this->save();
+    }
+    
+    public static function create(array $attributes) {
+        $model = new static($attributes);
+        $model->save();
+        return $model;
     }
 }

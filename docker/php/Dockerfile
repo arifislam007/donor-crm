@@ -7,8 +7,8 @@ RUN apk add --no-cache \
     unzip \
     libzip-dev \
     zip \
-    mysql-client \
-    && docker-php-ext-install zip pdo pdo_mysql
+    postgresql-client \
+    && docker-php-ext-install zip pdo pdo_mysql pdo_pgsql
 
 # Set working directory
 WORKDIR /var/www/html

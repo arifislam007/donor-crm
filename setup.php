@@ -2,7 +2,7 @@
 /**
  * Database Setup Script
  * NGO Donor Management System
- * Run this script to create the database tables
+ * Run this script to create the database tables (PostgreSQL)
  */
 
 // Define application path
@@ -10,14 +10,14 @@ define('APP_PATH', __DIR__);
 
 require_once __DIR__ . '/autoload.php';
 
-echo "Setting up NGO Donor Management System database...\n\n";
+echo "Setting up NGO Donor Management System database (PostgreSQL)...\n\n";
 
 try {
     $config = require_once __DIR__ . '/config/database.php';
     
     // Connect without database first
     $dsn = sprintf(
-        'mysql:host=%s;port=%s',
+        'pgsql:host=%s;port=%s',
         $config['host'],
         $config['port']
     );
@@ -28,135 +28,146 @@ try {
     
     // Create database if not exists
     $dbName = $config['database'];
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbName` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    echo "✓ Database '$dbName' created or already exists\n";
+    $pdo->exec("CREATE DATABASE \"$dbName\"");
+    echo "✓ Database '$dbName' created\n";
+    
+} catch (PDOException $e) {
+    // Database might already exist, try to continue
+    if (strpos($e->getMessage(), 'already exists') === false) {
+        echo "Note: " . $e->getMessage() . "\n";
+    }
+}
+
+try {
+    $config = require_once __DIR__ . '/config/database.php';
     
     // Connect to the database
     $dsn = sprintf(
-        'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+        'pgsql:host=%s;port=%s;dbname=%s',
         $config['host'],
         $config['port'],
-        $config['database'],
-        $config['charset']
+        $config['database']
     );
     
     $db = new PDO($dsn, $config['username'], $config['password'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
     
+    echo "✓ Connected to database\n";
+    
     // Create users table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `users` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `name` VARCHAR(255) NOT NULL,
-            `email` VARCHAR(255) UNIQUE NOT NULL,
-            `password` VARCHAR(255) NOT NULL,
-            `phone` VARCHAR(20) DEFAULT '',
-            `address` TEXT,
-            `country` VARCHAR(100) DEFAULT '',
-            `role` ENUM('donor', 'admin') DEFAULT 'donor',
-            `status` ENUM('active', 'inactive', 'blocked') DEFAULT 'active',
-            `email_verified_at` TIMESTAMP NULL,
-            `remember_token` VARCHAR(100) DEFAULT '',
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            phone VARCHAR(20) DEFAULT '',
+            address TEXT,
+            country VARCHAR(100) DEFAULT '',
+            role VARCHAR(50) DEFAULT 'donor',
+            status VARCHAR(50) DEFAULT 'active',
+            email_verified_at TIMESTAMP NULL,
+            remember_token VARCHAR(100) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     ");
     echo "✓ Users table created\n";
     
     // Create projects table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `projects` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `title` VARCHAR(255) NOT NULL,
-            `slug` VARCHAR(255) UNIQUE NOT NULL,
-            `short_description` VARCHAR(500) DEFAULT '',
-            `full_description` TEXT,
-            `target_amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-            `raised_amount` DECIMAL(15, 2) DEFAULT 0.00,
-            `image_path` VARCHAR(255) DEFAULT '',
-            `status` ENUM('draft', 'active', 'completed', 'paused') DEFAULT 'draft',
-            `start_date` DATE DEFAULT NULL,
-            `end_date` DATE DEFAULT NULL,
-            `created_by` BIGINT UNSIGNED DEFAULT NULL,
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (`created_by`) REFERENCES `users`(`id`) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS projects (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) UNIQUE NOT NULL,
+            short_description VARCHAR(500) DEFAULT '',
+            full_description TEXT,
+            target_amount DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+            raised_amount DECIMAL(15, 2) DEFAULT 0.00,
+            image_path VARCHAR(255) DEFAULT '',
+            status VARCHAR(50) DEFAULT 'draft',
+            start_date DATE DEFAULT NULL,
+            end_date DATE DEFAULT NULL,
+            created_by INTEGER DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )
     ");
     echo "✓ Projects table created\n";
     
     // Create donations table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `donations` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `donor_id` BIGINT UNSIGNED NOT NULL,
-            `project_id` BIGINT UNSIGNED DEFAULT NULL,
-            `amount` DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
-            `currency` VARCHAR(3) DEFAULT 'USD',
-            `payment_method` ENUM('credit_card', 'bank_transfer', 'paypal', 'cash', 'other') DEFAULT 'cash',
-            `payment_status` ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
-            `transaction_id` VARCHAR(255) UNIQUE DEFAULT '',
-            `anonymous_donation` TINYINT(1) DEFAULT 0,
-            `message` TEXT,
-            `receipt_sent` TINYINT(1) DEFAULT 0,
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (`donor_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
-            FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS donations (
+            id SERIAL PRIMARY KEY,
+            donor_id INTEGER NOT NULL,
+            project_id INTEGER DEFAULT NULL,
+            amount DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+            currency VARCHAR(3) DEFAULT 'USD',
+            payment_method VARCHAR(50) DEFAULT 'cash',
+            payment_status VARCHAR(50) DEFAULT 'pending',
+            transaction_id VARCHAR(255) UNIQUE DEFAULT '',
+            anonymous_donation BOOLEAN DEFAULT FALSE,
+            message TEXT,
+            receipt_sent BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (donor_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+        )
     ");
     echo "✓ Donations table created\n";
     
     // Create email_logs table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `email_logs` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `recipient_email` VARCHAR(255) NOT NULL,
-            `recipient_name` VARCHAR(255) DEFAULT '',
-            `subject` VARCHAR(500) NOT NULL,
-            `email_type` ENUM('donation_confirmation', 'donation_receipt', 'project_update', 'admin_notification', 'password_reset', 'welcome') NOT NULL,
-            `related_id` BIGINT UNSIGNED DEFAULT NULL,
-            `related_type` VARCHAR(100) DEFAULT '',
-            `status` ENUM('sent', 'failed', 'pending') DEFAULT 'pending',
-            `error_message` TEXT,
-            `sent_at` TIMESTAMP NULL,
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS email_logs (
+            id SERIAL PRIMARY KEY,
+            recipient_email VARCHAR(255) NOT NULL,
+            recipient_name VARCHAR(255) DEFAULT '',
+            subject VARCHAR(500) NOT NULL,
+            email_type VARCHAR(100) NOT NULL,
+            related_id INTEGER DEFAULT NULL,
+            related_type VARCHAR(100) DEFAULT '',
+            status VARCHAR(50) DEFAULT 'pending',
+            error_message TEXT,
+            sent_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     ");
     echo "✓ Email logs table created\n";
     
     // Create payment_logs table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `payment_logs` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `donation_id` BIGINT UNSIGNED NOT NULL,
-            `gateway` ENUM('sslcommerz', 'nagad', 'bkash', 'rocket', 'mock') NOT NULL,
-            `is_sandbox` TINYINT(1) DEFAULT 1,
-            `transaction_id` VARCHAR(255) DEFAULT '',
-            `request_data` TEXT,
-            `response_data` TEXT,
-            `status` ENUM('pending', 'success', 'failed', 'cancelled') DEFAULT 'pending',
-            `error_message` TEXT,
-            `ipn_data` TEXT,
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            FOREIGN KEY (`donation_id`) REFERENCES `donations`(`id`) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS payment_logs (
+            id SERIAL PRIMARY KEY,
+            donation_id INTEGER NOT NULL,
+            gateway VARCHAR(50) NOT NULL,
+            is_sandbox BOOLEAN DEFAULT TRUE,
+            transaction_id VARCHAR(255) DEFAULT '',
+            request_data TEXT,
+            response_data TEXT,
+            status VARCHAR(50) DEFAULT 'pending',
+            error_message TEXT,
+            ipn_data TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (donation_id) REFERENCES donations(id) ON DELETE CASCADE
+        )
     ");
     echo "✓ Payment logs table created\n";
     
-    // Create settings table for payment gateway configuration
+    // Create settings table
     $db->exec("
-        CREATE TABLE IF NOT EXISTS `settings` (
-            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            `key` VARCHAR(100) UNIQUE NOT NULL,
-            `value` TEXT,
-            `type` ENUM('string', 'integer', 'boolean', 'json') DEFAULT 'string',
-            `description` VARCHAR(255) DEFAULT '',
-            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        CREATE TABLE IF NOT EXISTS settings (
+            id SERIAL PRIMARY KEY,
+            key VARCHAR(100) UNIQUE NOT NULL,
+            value TEXT DEFAULT '',
+            type VARCHAR(50) DEFAULT 'string',
+            description VARCHAR(255) DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     ");
     echo "✓ Settings table created\n";
     
@@ -165,25 +176,25 @@ try {
         ['key' => 'payment_mode', 'value' => 'sandbox', 'type' => 'string', 'description' => 'Payment mode: sandbox or live'],
         ['key' => 'sslcommerz_store_id', 'value' => '', 'type' => 'string', 'description' => 'SSLCommerz Store ID'],
         ['key' => 'sslcommerz_store_password', 'value' => '', 'type' => 'string', 'description' => 'SSLCommerz Store Password'],
-        ['key' => 'sslcommerz_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'SSLCommerz Sandbox Mode'],
+        ['key' => 'sslcommerz_sandbox', 'value' => 'true', 'type' => 'boolean', 'description' => 'SSLCommerz Sandbox Mode'],
         ['key' => 'nagad_merchant_id', 'value' => '', 'type' => 'string', 'description' => 'Nagad Merchant ID'],
         ['key' => 'nagad_merchant_number', 'value' => '', 'type' => 'string', 'description' => 'Nagad Merchant Number'],
-        ['key' => 'nagad_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Nagad Sandbox Mode'],
+        ['key' => 'nagad_sandbox', 'value' => 'true', 'type' => 'boolean', 'description' => 'Nagad Sandbox Mode'],
         ['key' => 'bkash_app_key', 'value' => '', 'type' => 'string', 'description' => 'Bkash App Key'],
         ['key' => 'bkash_app_secret', 'value' => '', 'type' => 'string', 'description' => 'Bkash App Secret'],
         ['key' => 'bkash_username', 'value' => '', 'type' => 'string', 'description' => 'Bkash Username'],
         ['key' => 'bkash_password', 'value' => '', 'type' => 'string', 'description' => 'Bkash Password'],
-        ['key' => 'bkash_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Bkash Sandbox Mode'],
+        ['key' => 'bkash_sandbox', 'value' => 'true', 'type' => 'boolean', 'description' => 'Bkash Sandbox Mode'],
         ['key' => 'rocket_merchant_id', 'value' => '', 'type' => 'string', 'description' => 'Rocket Merchant ID'],
         ['key' => 'rocket_merchant_number', 'value' => '', 'type' => 'string', 'description' => 'Rocket Merchant Number'],
-        ['key' => 'rocket_sandbox', 'value' => '1', 'type' => 'boolean', 'description' => 'Rocket Sandbox Mode'],
+        ['key' => 'rocket_sandbox', 'value' => 'true', 'type' => 'boolean', 'description' => 'Rocket Sandbox Mode'],
     ];
     
     foreach ($settings as $setting) {
         $stmt = $db->prepare("
-            INSERT INTO settings (`key`, `value`, `type`, `description`) 
+            INSERT INTO settings (key, value, type, description) 
             VALUES (:key, :value, :type, :description)
-            ON DUPLICATE KEY UPDATE `value` = :value
+            ON CONFLICT (key) DO UPDATE SET value = :value
         ");
         $stmt->execute($setting);
     }
