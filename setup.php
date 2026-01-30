@@ -8,6 +8,21 @@
 // Define application path
 define('APP_PATH', __DIR__);
 
+// Load .env file if it exists
+if (file_exists(APP_PATH . '/.env')) {
+    $lines = file(APP_PATH . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+}
+
 require_once __DIR__ . '/autoload.php';
 
 echo "Setting up NGO Donor Management System database (PostgreSQL)...\n\n";
@@ -18,16 +33,16 @@ try {
     // Connect without database first
     $dsn = sprintf(
         'pgsql:host=%s;port=%s',
-        $config['host'],
-        $config['port']
+        $config['DB_HOST'],
+        $config['DB_PORT']
     );
     
-    $pdo = new PDO($dsn, $config['username'], $config['password'], [
+    $pdo = new PDO($dsn, $config['DB_USERNAME'], $config['DB_PASSWORD'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
     
     // Create database if not exists
-    $dbName = $config['database'];
+    $dbName = $config['DB_DATABASE'];
     $pdo->exec("CREATE DATABASE \"$dbName\"");
     echo "✓ Database '$dbName' created\n";
     
@@ -44,12 +59,12 @@ try {
     // Connect to the database
     $dsn = sprintf(
         'pgsql:host=%s;port=%s;dbname=%s',
-        $config['host'],
-        $config['port'],
-        $config['database']
+        $config['DB_HOST'],
+        $config['DB_PORT'],
+        $config['ngo_donor_system']
     );
     
-    $db = new PDO($dsn, $config['username'], $config['password'], [
+    $db = new PDO($dsn, $config['DB_USERNAME'], $config['DB_PASSWORD'], [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     ]);
     
